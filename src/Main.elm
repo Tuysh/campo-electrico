@@ -4,10 +4,8 @@ import Browser
 import Browser.Events
 import Element as E
 import Element.Background as Background
-import Element.Font as Font
 import Html exposing (Html)
 import Html.Attributes
-import Html.Events.Extra.Mouse as Mouse
 import List.Extra
 import Math.Vector2 as Vector2
 import Simulation
@@ -16,9 +14,7 @@ import Utils exposing (toElmUiColor)
 import Browser.Dom
 
 type alias Model =
-    { simulations : List Simulation.Model
-    , activeSimulation : Simulation.Model
-    , defaultSimulationIndex : Int
+    { activeSimulation : Simulation.Model
     , simulationWidth : Float
     , simulationHeight : Float
     , cursor : Cursor
@@ -27,16 +23,13 @@ type alias Model =
     , isMobile : Bool
     }
 
-
 type Cursor
     = Selector
     | Painter Simulation.Sign
     | Deleter
 
-
 type Msg
-    = ChangeActiveSimulation Simulation.Model
-    | SimulationMsg Simulation.Msg
+    = SimulationMsg Simulation.Msg
     | GotViewport Browser.Dom.Viewport
     | WindowResized Int Int
     | UpdateActiveSimulationState
@@ -61,19 +54,10 @@ init : ( Model, Cmd Msg )
 init =
     let
         defaultActiveSimulation =
-            let
-                simulation =
-                    Simulation.init defaultSimulationWidth defaultSimulationHeight
-            in
-                simulation
+            Simulation.init defaultSimulationWidth defaultSimulationHeight
 
-        defaultSimulations =
-            [ defaultActiveSimulation ]
-
-        project =
-            { simulations = defaultSimulations
-            , activeSimulation = defaultActiveSimulation
-            , defaultSimulationIndex = 1
+        model =
+            { activeSimulation = defaultActiveSimulation
             , simulationWidth = defaultSimulationWidth
             , simulationHeight = defaultSimulationHeight
             , cursor = Selector
@@ -82,49 +66,27 @@ init =
             , isMobile = False
             }
     in
-    ( project
+    ( model
     , Task.perform GotViewport Browser.Dom.getViewport
     )
-
 
 view : Model -> Html Msg
 view model =
     E.layout
         [ E.width E.fill
         , E.height E.fill
-        , Font.size 14
-        , Font.family [ Font.monospace ]
         , Background.color <| toElmUiColor model.activeSimulation.settings.colors.background
         , E.htmlAttribute <| Html.Attributes.style "touch-action" "none"
         ]
     <|
         E.el
-            (E.centerX
-                :: (if model.isMobile then
-                        []
-                    else
-                        []
-                   )
-            )
-            (E.el
-                (if model.isInteractionEnabled then
-                    [ E.htmlAttribute <| Mouse.onMove (\event -> DrawCharges event.offsetPos)
-                    , E.htmlAttribute <| Mouse.onClick (\event -> CursorClicked event.offsetPos)
-                    , E.htmlAttribute <| Mouse.onDown (\_ -> MouseDown)
-                    , E.htmlAttribute <| Mouse.onUp (\_ -> MouseUp)
-                    ]
-                 else
-                    []
-                )
-                (E.html (Html.map SimulationMsg <| Simulation.view model.activeSimulation))
-            )
+            [ E.centerX ]
+            (E.html (Html.map SimulationMsg <| Simulation.view model.activeSimulation))
+
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update message model =
     case message of
-
-        ChangeActiveSimulation newSimulation ->
-            ( changeActiveSimulation newSimulation model, Cmd.none )
 
         SimulationMsg msg ->
             updateActiveSimulationWithMsg msg model
@@ -153,14 +115,6 @@ update message model =
         MouseUp ->
             ( mouseUp model, Cmd.none )
 
-changeActiveSimulation : Simulation.Model -> Model -> Model
-changeActiveSimulation newSimulation model =
-    { model
-        | activeSimulation =
-            newSimulation
-    }
-
-
 updateActiveSimulationWithMsg : Simulation.Msg -> Model -> ( Model, Cmd Msg )
 updateActiveSimulationWithMsg msg model =
     let
@@ -177,16 +131,6 @@ updateActiveSimulation newActiveSimulation model =
     { model
         | activeSimulation =
             newActiveSimulation
-        , simulations =
-            List.map
-                (\simulation ->
-                    if simulation == model.activeSimulation then
-                        newActiveSimulation
-
-                    else
-                        simulation
-                )
-                model.simulations
     }
 
 updateIsInteractionEnabled : Bool -> Model -> Model
@@ -232,10 +176,6 @@ updateSimulationSize newWidth newHeight model =
             newWidth
         , simulationHeight =
             newHeightAdapted
-        , simulations =
-            List.map
-                updateSize
-                model.simulations
         , activeSimulation =
             updateSize model.activeSimulation
         , isMobile =
