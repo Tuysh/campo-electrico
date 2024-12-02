@@ -17,9 +17,7 @@ import Html.Events.Extra.Mouse as Mouse
 import List.Extra
 import Math.Vector2 as Vector2 exposing (Vec2, vec2)
 import Maybe.Extra
-import Process
 import Set exposing (Set)
-import Task
 import TypedSvg as Svg
 import TypedSvg.Attributes as Attributes
 import TypedSvg.Core exposing (Svg)
@@ -36,8 +34,6 @@ type alias Model =
     , drag : Draggable.State Id
     , contextMenu : ContextMenu
     , settings : Settings
-    , isWheeling : Bool
-    , isWheelingTimeOutCleared : Bool
     , state : State
     , width : Float
     , height : Float
@@ -56,7 +52,6 @@ type alias Settings =
     , steps : Int
     , delta : Float
     , magnitude : Float
-    , showSourceValue : Bool
     , colors : SettingColors
     }
 
@@ -122,7 +117,6 @@ defaultSettings =
     , steps = 3000
     , delta = 2
     , magnitude = 1
-    , showSourceValue = True
     , colors =
         { positiveCharge = rgba (193 / 255) (18 / 255) (31 / 255) 1
         , negativeCharge = rgba (102 / 255) (155 / 255) (188 / 255) 1
@@ -139,7 +133,6 @@ type Msg
     | EndDragging
     | ActivateSource Id
     | ToggleSourceSign
-    | ScaleSourceMagnitude Int
     | UpdateSourceCharge Sign
     | ShowFieldContextMenu
     | ShowGeneralContextMenu Mouse.Event
@@ -149,7 +142,6 @@ type Msg
     | DeselectActiveField
     | AddPositiveCharge Position
     | AddNegativeCharge Position
-    | StopWheelingTimeOut
     | Step Float
 
 
@@ -187,8 +179,6 @@ init width height =
             , drag = Draggable.init
             , contextMenu = NoContextMenu
             , settings = defaultSettings
-            , isWheeling = False
-            , isWheelingTimeOutCleared = False
             , width = width
             , height = height
             , state = Resting
@@ -460,15 +450,6 @@ update msg model =
         ToggleSourceSign ->
             ( toggleSourceSign model, Cmd.none )
 
-        ScaleSourceMagnitude delta ->
-            scaleSourceMagnitude delta model
-
-        UpdateSourceCharge sign ->
-            updateSourceCharge sign model
-
-        StopWheelingTimeOut ->
-            ( stopWheelingTimeOut model, Cmd.none )
-
         DragMsg dragMsg ->
             Draggable.update (dragConfig model.isInteractionEnabled) dragMsg model
 
@@ -490,15 +471,66 @@ update msg model =
         DeselectActiveField ->
             ( deselectActiveField model, Cmd.none )
 
-        AddPositiveCharge position ->
-            ( addCharge Positive position model, Cmd.none )
-
-        AddNegativeCharge position ->
-            ( addCharge Negative position model, Cmd.none )
-
         Step delta ->
             ( step delta model, Cmd.none )
+            
+        AddPositiveCharge position ->
+            ( addCharge Positive position model, Cmd.none )
+            
+        AddNegativeCharge position ->
+            ( addCharge Negative position model, Cmd.none )
+            
+        UpdateSourceCharge sign ->
+            ( updateSourceCharge sign model, Cmd.none )
 
+updateSourceCharge : Sign -> Model -> Model
+updateSourceCharge sign model =
+    let
+        newFields =
+            updateActive
+                (\field ->
+                    let
+                        source =
+                            field.source
+
+                        delta =
+                            case sign of
+                                Positive ->
+                                    1.0
+
+                                Negative ->
+                                    -1.0
+
+                        newMagnitude =
+                            source.magnitude
+                                + (case source.sign of
+                                    Positive ->
+                                        delta
+
+                                    Negative ->
+                                        -delta
+                                  )
+                    in
+                    { field
+                        | source =
+                            { source
+                                | magnitude = min 20 <| max 1.0 <| newMagnitude
+                                , sign =
+                                    if abs newMagnitude < 1.0 then
+                                        flipSign source.sign
+
+                                    else
+                                        source.sign
+                            }
+                    }
+                )
+                model.activeSourceId
+                model.fields
+    in
+    { model
+        | fields =
+            calculateFields model.width model.height newFields
+    }
 
 onDragBy : Position -> Model -> Model
 onDragBy offsetPos model =
@@ -596,120 +628,6 @@ toggleSourceSign model =
         | fields =
             calculateFields model.width model.height newFields
     }
-
-
-scaleSourceMagnitude : Int -> Model -> ( Model, Cmd Msg )
-scaleSourceMagnitude delta model =
-    let
-        newModel =
-            if model.isWheeling then
-                model
-
-            else
-                optimizeModel model
-
-        newFields =
-            updateActive
-                (\field ->
-                    let
-                        source =
-                            field.source
-                    in
-                    { field
-                        | source =
-                            { source
-                                | magnitude =
-                                    min 20 <| max 0.5 <| source.magnitude + either -0.5 0.5 (toFloat delta * -0.01)
-                            }
-                    }
-                )
-                newModel.activeSourceId
-                newModel.fields
-    in
-    ( { model
-        | fields =
-            calculateFields model.width model.height newFields
-        , isWheeling =
-            True
-        , isWheelingTimeOutCleared =
-            True
-      }
-    , setTimeOut 200 StopWheelingTimeOut
-    )
-
-
-updateSourceCharge : Sign -> Model -> ( Model, Cmd Msg )
-updateSourceCharge deltaDirection model =
-    let
-        newFields =
-            updateActive
-                (\field ->
-                    let
-                        source =
-                            field.source
-
-                        delta =
-                            case deltaDirection of
-                                Positive ->
-                                    1.0
-
-                                Negative ->
-                                    -1.0
-
-                        newMagnitude =
-                            source.magnitude
-                                + (case source.sign of
-                                    Positive ->
-                                        delta
-
-                                    Negative ->
-                                        -delta
-                                  )
-                    in
-                    { field
-                        | source =
-                            { source
-                                | magnitude = min 20 <| max 1.0 <| newMagnitude
-                                , sign =
-                                    if abs newMagnitude < 1.0 then
-                                        flipSign source.sign
-
-                                    else
-                                        source.sign
-                            }
-                    }
-                )
-                model.activeSourceId
-                model.fields
-    in
-    ( { model
-        | fields =
-            calculateFields model.width model.height newFields
-      }
-    , Cmd.none
-    )
-
-
-setTimeOut : Float -> msg -> Cmd msg
-setTimeOut time msg =
-    Process.sleep time
-        |> Task.perform (\_ -> msg)
-
-
-stopWheelingTimeOut : Model -> Model
-stopWheelingTimeOut model =
-    if model.isWheelingTimeOutCleared then
-        { model
-            | isWheelingTimeOutCleared = False
-        }
-
-    else
-        deoptimizeModel
-            { model
-                | isWheeling = False
-                , isWheelingTimeOutCleared = False
-            }
-
 
 showFieldContextMenu : Model -> Model
 showFieldContextMenu model =
@@ -1264,7 +1182,7 @@ viewFieldSource isInteractionEnabled activeSourceId settings field =
                     tooltipHeight =
                         40
                 in
-                if field.source.id == id && settings.showSourceValue then
+                if field.source.id == id  then
                     Svg.g
                         [ Attributes.transform
                             [ Translate (x - tooltipWidth / 2) (y - field.source.r - tooltipHeight - 10)
@@ -1435,16 +1353,6 @@ lerp min1 max1 min2 max2 num =
             abs <| (num - min1) / (max1 - min1)
     in
     min2 + ratio * (max2 - min2)
-
-
-either : Float -> Float -> Float -> Float
-either minimum maximum value =
-    if value < 0 then
-        minimum
-
-    else
-        maximum
-
 
 foldlWhile : (a -> b -> ( b, Bool )) -> b -> List a -> b
 foldlWhile accumulate initial list =
