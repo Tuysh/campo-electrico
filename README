@@ -1,0 +1,52 @@
+SIMULADOR DE CAMPO ELÉCTRICO (Versión Minimalista)
+=====================================
+
+DESCRIPCIÓN
+-----------
+Esta es una versión simplificada de un simulador de campos eléctricos,
+basada en el proyecto original: https://github.com/AlienKevin/electric-fields.
+Diseñado con fines educativos para visualizar conceptos básicos de electrostática.
+
+CARACTERÍSTICAS PRINCIPALES
+-------------------------
+* Visualización de líneas de campo eléctrico
+* Añadir cargas positivas y negativas
+* Mover cargas arrastrándolas
+* Modificar la magnitud de las cargas
+
+CÓMO USAR
+---------
+1. Click derecho en cualquier parte -> Añadir carga (+ o -)
+2. Click y arrastrar -> Mover cargas
+3. Click en una carga -> Modificar su magnitud
+4. Doble click en una carga -> Cambiar su signo
+
+CONTROLES
+---------
+- Click derecho en espacio vacío: Menú para añadir cargas
+- Click derecho en una carga: Menú de opciones (eliminar, duplicar)
+- Arrastrar: Mover cargas
+- Flechas < > : Ajustar magnitud de la carga seleccionada
+
+INSTALACIÓN
+-----------
+Requiere: Elm
+
+1. Clonar el repositorio
+2. Instalar dependencias de Elm
+3. Compilar y ejecutar
+
+CRÉDITOS Y LICENCIA
+------------------
+* Versión original por: Kevin Xiang Li
+* Licencia: Creative Commons Attribution-ShareAlike 4.0 International
+* Repositorio original: https://github.com/AlienKevin/electric-fields
+
+Esta versión modificada mantiene la misma licencia que el proyecto original.
+Se han realizado simplificaciones con fines educativos.
+
+NOTAS ADICIONALES
+----------------
+Esta es una versión minimalista enfocada en la funcionalidad básica
+de simulación de campos eléctricos. Se han eliminado características
+adicionales para mantener una interfaz simple y directa.
