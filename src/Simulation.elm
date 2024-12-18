@@ -1,6 +1,5 @@
-module Simulation exposing (Model, Msg, Position, Settings, Sign(..), State(..), addCharge, calculateFields, defaultSettings, deleteCharge, init, subscriptions, update, view)
+module Simulation exposing (Model, Msg, Position, Settings, Sign(..), addCharge, calculateFields, defaultSettings, deleteCharge, init, subscriptions, update, view)
 
-import Browser.Events
 import Color exposing (Color)
 import Dict exposing (Dict)
 import Dict.Extra
@@ -34,16 +33,10 @@ type alias Model =
     , drag : Draggable.State Id
     , contextMenu : ContextMenu
     , settings : Settings
-    , state : State
     , width : Float
     , height : Float
     , isInteractionEnabled : Bool
     }
-
-
-type State
-    = Resting
-    | Running
 
 
 type alias Settings =
@@ -142,7 +135,6 @@ type Msg
     | DeselectActiveField
     | AddPositiveCharge Position
     | AddNegativeCharge Position
-    | Step Float
 
 
 init : Float -> Float -> Model
@@ -181,7 +173,6 @@ init width height =
             , settings = defaultSettings
             , width = width
             , height = height
-            , state = Resting
             , isInteractionEnabled = True
             }
     in
@@ -471,9 +462,6 @@ update msg model =
         DeselectActiveField ->
             ( deselectActiveField model, Cmd.none )
 
-        Step delta ->
-            ( step delta model, Cmd.none )
-            
         AddPositiveCharge position ->
             ( addCharge Positive position model, Cmd.none )
             
@@ -731,144 +719,6 @@ addCharge sign ( x, y ) model =
         , nextId =
             model.nextId + 1
     }
-
-
-step : Float -> Model -> Model
-step _ model =
-    case model.state of
-        Running ->
-            move model
-
-        Resting ->
-            model
-
-
-move : Model -> Model
-move model =
-    let
-        fields =
-            model.fields
-
-        newFields =
-            List.map
-                (\field ->
-                    let
-                        force =
-                            calculateElectricForce field (List.filter ((/=) field) fields)
-
-                        newAcceleration =
-                            force
-
-                        newVelocity =
-                            Vector2.toRecord <| Vector2.add newAcceleration field.source.velocity
-
-                        newPosition =
-                            Vector2.toRecord <| Vector2.add (Vector2.fromRecord newVelocity) field.source.position
-
-                        r =
-                            field.source.r
-
-                        width =
-                            model.width
-
-                        height =
-                            model.height
-
-                        newX =
-                            if newPosition.x < r then
-                                r
-
-                            else if newPosition.x > width - r then
-                                width - r
-
-                            else
-                                newPosition.x
-
-                        newY =
-                            if newPosition.y < r then
-                                r
-
-                            else if newPosition.y > height - r then
-                                height - r
-
-                            else
-                                newPosition.y
-
-                        newXVelocity =
-                            if newPosition.x < r || newPosition.x > width - r then
-                                -1 * newVelocity.x
-
-                            else
-                                newVelocity.x
-
-                        newYVelocity =
-                            if newPosition.y < r || newPosition.y > height - r then
-                                -1 * newVelocity.y
-
-                            else
-                                newVelocity.y
-
-                        source =
-                            field.source
-                    in
-                    { field
-                        | source =
-                            { source
-                                | position =
-                                    vec2 newX newY
-                                , velocity =
-                                    vec2 newXVelocity newYVelocity
-                            }
-                    }
-                )
-                fields
-    in
-    { model
-        | fields =
-            calculateFields model.width model.height newFields
-    }
-
-
-calculateElectricForce : Field -> List Field -> Vec2
-calculateElectricForce self rests =
-    List.foldl
-        (\other netForce ->
-            let
-                d =
-                    Vector2.distance self.source.position other.source.position / 100
-
-                forceMagnitude =
-                    if d == 0 then
-                        0.5
-
-                    else
-                        min 2 <| self.source.magnitude * other.source.magnitude / d ^ 2
-
-                forceDirection =
-                    if d == 0 then
-                        self.source.velocity
-
-                    else
-                        Vector2.normalize <| Vector2.sub self.source.position other.source.position
-
-                force =
-                    Vector2.scale (sign * forceMagnitude) forceDirection
-
-                sign =
-                    case ( self.source.sign, other.source.sign ) of
-                        ( Positive, Negative ) ->
-                            -1
-
-                        ( Negative, Positive ) ->
-                            -1
-
-                        _ ->
-                            1
-            in
-            Vector2.add force netForce
-        )
-        (Vector2.vec2 0 0)
-        rests
 
 
 duplicateActiveField : Model -> Model
@@ -1378,7 +1228,4 @@ foldlWhile accumulate initial list =
 
 subscriptions : Model -> Sub Msg
 subscriptions { drag } =
-    Sub.batch
-        [ Draggable.subscriptions DragMsg drag
-        , Browser.Events.onAnimationFrameDelta Step
-        ]
+    Draggable.subscriptions DragMsg drag

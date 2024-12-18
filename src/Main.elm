@@ -28,7 +28,6 @@ type Msg
     = SimulationMsg Simulation.Msg
     | GotViewport Browser.Dom.Viewport
     | WindowResized Int Int
-    | UpdateActiveSimulationState
     | UpdateCursor Cursor
     | DrawCharges Position
     | CursorClicked Position
@@ -76,21 +75,6 @@ update message model =
 
         WindowResized width height ->
             ( updateSimulationSize (toFloat width) (toFloat height) model
-            , Cmd.none
-            )
-
-        UpdateActiveSimulationState ->
-            ( { model 
-                | activeSimulation =
-                    let 
-                        sim = model.activeSimulation
-                        nextState = 
-                            case sim.state of
-                                Simulation.Running -> Simulation.Resting
-                                Simulation.Resting -> Simulation.Running
-                    in
-                    { sim | state = nextState }
-              }
             , Cmd.none
             )
 
